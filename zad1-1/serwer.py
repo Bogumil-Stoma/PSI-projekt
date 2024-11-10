@@ -5,10 +5,7 @@ HOST = '0.0.0.0'
 MAX_BUF_SIZE = 160000
 
 def main():
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    
-    
-    print(f"Server listening on port {port}...")
+    print(f"Server listening on port {PORT}...")
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.bind((HOST, PORT))
         
