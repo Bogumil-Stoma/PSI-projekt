@@ -1,0 +1,6 @@
+FROM gcc:4.9
+
+COPY ./ ./
+RUN gcc -o client clientC.c
+
+CMD ["./client"]
