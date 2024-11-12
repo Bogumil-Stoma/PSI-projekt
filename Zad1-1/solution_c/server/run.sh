@@ -1,3 +1,4 @@
+sed -i 's/\r$//' "$0"
 
 echo "Starting server C"
 docker build -t z35_cserver .

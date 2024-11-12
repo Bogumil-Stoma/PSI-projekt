@@ -1,3 +1,4 @@
+sed -i 's/\r$//' "$0"
 
 echo "Starting client C"
 docker build -t z35_cclient .
