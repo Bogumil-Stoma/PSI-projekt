@@ -1,7 +1,6 @@
 import socket
+import sys
 
-PORT = 12345
-HOST = '0.0.0.0'
 MAX_BUF_SIZE = 160000
 
 def main():
@@ -20,5 +19,20 @@ def main():
             response = b"OK"
             s.sendto(response, address)
 
+def process_args():
+    port = 12345
+    host = '0.0.0.0'
+    arg_count = len(sys.argv)
+
+    if arg_count == 2:
+        port = int(sys.argv[1])
+    elif arg_count > 2:
+        print("Too many arguments provided. Exiting.")
+        sys.exit(1)
+    return port, host
+
+PORT, HOST = process_args()
+
 if __name__ == "__main__":
     main()
+

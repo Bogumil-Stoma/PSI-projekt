@@ -1,9 +1,6 @@
 import socket
-import time
 
 MAX_BUF_SIZE = 160000
-HOST = '172.21.35.2'
-PORT = 12345
 BYTES_ITERATION_SIZE = 1000
 ITERATIONS = 100
 MESSAGE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -26,7 +23,24 @@ def main():
                 print(f"Error sending datagram: {e}")
                 break
 
-    time.sleep(5)
+import sys
+
+def process_args():
+    port = 12345
+    host = "172.21.35.2"
+    arg_count = len(sys.argv)
+
+    if arg_count == 2:
+        port = int(sys.argv[1])
+    elif arg_count == 3:
+        port = int(sys.argv[1])
+        host = sys.argv[2]
+    elif arg_count > 3:
+        print("Too many arguments provided. Exiting.")
+        sys.exit(1)
+    return port, host
+
+PORT, HOST = process_args()
 
 def send_datagram(s, length):
     data = length_to_bytes(length) + message_to_bytes(length-2)

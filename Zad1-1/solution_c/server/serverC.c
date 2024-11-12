@@ -5,62 +5,89 @@
 #include <string.h>
 #include <unistd.h>
 
-#define SERVER_PORT 12345
-#define BUFFER_SIZE 65535 // Maximum UDP buffer size
+#define DEFAULT_PORT 12345
+#define BUFFER_SIZE 65535
 #define SERVER_RESPONSE_SIZE 128
 
-#define bailout(s) { printf("Error: %s", s); err(1, s); exit(EXIT_FAILURE); }
+void bailout(const char *msg)
+{
+    perror(msg);
+    exit(EXIT_FAILURE);
+}
 
-int main() {
+int setup_socket(int port)
+{
     int sock;
-    struct sockaddr_in server_addr, client_addr;
-    socklen_t client_len = sizeof(client_addr);
-    unsigned char buffer[BUFFER_SIZE];
+    struct sockaddr_in server_addr;
 
-    // Create socket
     sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock == -1) {
+    if (sock == -1)
         bailout("socket");
-    }
 
-    // Bind socket to port
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(SERVER_PORT);
-    if (bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
+    server_addr.sin_port = htons(port);
+
+    if (bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
+    {
         close(sock);
         bailout("bind");
     }
 
-    printf("Server is listening on port %d\n", ntohs(server_addr.sin_port));
+    printf("Server is listening on port %d\n", port);
+    return sock;
+}
 
-    while (1) {
+void handle_client(int sock)
+{
+    struct sockaddr_in client_addr;
+    socklen_t client_len = sizeof(client_addr);
+    unsigned char buffer[BUFFER_SIZE];
 
-        // Receive datagram
-        int recv_len = recvfrom(sock, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&client_addr, &client_len);
-        if (recv_len < 0) {
-            perror("recvfrom");
-            continue;
-        }
+    int recv_len = recvfrom(sock, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&client_addr, &client_len);
+    if (recv_len < 0)
+    {
+        perror("recvfrom");
+        return;
+    }
 
-        // Extract datagram size that is combination of first two bytes
-        int declarated_size = (buffer[0] << 8) | buffer[1];
+    int declarated_size = (buffer[0] << 8) | buffer[1];
 
-        // Verify datagram size
-        if (declarated_size != recv_len) {
-            printf("Mismatch in declarated size (%d) and actual size (%d)\n", declarated_size, recv_len);
-            continue;
-        }
+    if (declarated_size != recv_len)
+    {
+        printf("Mismatch in declared size (%d) and actual size (%d)\n", declarated_size, recv_len);
+        return;
+    }
 
-        printf("Received datagram of size: %d\n", recv_len);
+    printf("Received datagram of size: %d\n", recv_len);
 
-        // Send acknowledgment back to the client
-        char response[SERVER_RESPONSE_SIZE];
-        snprintf(response, sizeof(response), "Received %d bytes", recv_len);
-        if (sendto(sock, response, strlen(response), 0, (struct sockaddr *)&client_addr, client_len) == -1) {
-            perror("sendto");
-        }
+    char response[SERVER_RESPONSE_SIZE];
+    snprintf(response, sizeof(response), "Received %d bytes", recv_len);
+    if (sendto(sock, response, strlen(response), 0, (struct sockaddr *)&client_addr, client_len) == -1)
+    {
+        perror("sendto");
+    }
+}
+
+int parse_args(int argc, char *argv[])
+{
+    if (argc > 2)
+    {
+        fprintf(stderr, "Too many arguments provided. Usage: %s [PORT]\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+    return argc == 2 ? atoi(argv[1]) : DEFAULT_PORT;
+}
+
+int main(int argc, char *argv[])
+{
+    int port = parse_args(argc, argv);
+    int sock = setup_socket(port);
+
+    while (1)
+    {
+        handle_client(sock);
     }
 
     close(sock);
