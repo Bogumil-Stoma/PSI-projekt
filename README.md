@@ -2,6 +2,6 @@
 
 ## Jak uruchomić projekt?
 
-- wykonać gitclone
+- wykonać git clone
 - wejść w folder z zadaniem
-- uruchomić odpowiedni plik sh, np dla klienta python run_python_client.sh
+- uruchomić odpowiedni plik sh, np. "./run_python_server.sh" i w drugim terminalu np.: "./run_c_client.sh"
