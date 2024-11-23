@@ -1,13 +1,14 @@
 import socket
 import time
 import sys
+import random
 
 TIMEOUT = 5
 RETRY_LIMIT = 5
 MAX_BUF_SIZE = 512
 MESSAGE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 DEFAULT_PORT = 12345
-DEFAULT_HOST = "172.21.35.2"
+DEFAULT_HOST = "127.0.0.1"
 
 
 def start_client(host, port):
@@ -16,6 +17,7 @@ def start_client(host, port):
     retries = 0
 
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client_socket:
+        client_socket.settimeout(TIMEOUT)
         while retries < RETRY_LIMIT:
             if send_packet(client_socket, seq_num, MAX_BUF_SIZE, address):
                 seq_num = 1 - seq_num
@@ -30,6 +32,7 @@ def start_client(host, port):
 
 def send_packet(s: socket.socket, seq_num, max_payload_size, address):
     try:
+        time.sleep(0.5)
         datagram = construct_datagram(seq_num, max_payload_size)
         s.sendto(datagram, address)
         print(f"Sent packet with sequence {seq_num}")
@@ -41,6 +44,9 @@ def send_packet(s: socket.socket, seq_num, max_payload_size, address):
         else:
             print(f"Invalid ACK, resend")
             return False
+    except socket.timeout:
+        print(f"Timeout waiting for ACK{seq_num}")
+        return False
     except Exception as e:
         print(f"Unexpected error: {e}")
         return False

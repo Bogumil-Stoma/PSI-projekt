@@ -41,7 +41,7 @@ def start_server(host, port):
 
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server_socket:
         server_socket.bind((host, port))
-
+        server_socket.settimeout(TIMEOUT)
         expected_seq = 0
         while True:
             try:
