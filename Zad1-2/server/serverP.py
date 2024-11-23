@@ -41,7 +41,6 @@ def start_server(host, port):
 
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server_socket:
         server_socket.bind((host, port))
-        server_socket.settimeout(TIMEOUT)
 
         expected_seq = 0
         while True:
@@ -50,8 +49,6 @@ def start_server(host, port):
                 expected_seq = handle_packet(
                     data, expected_seq, client_address, server_socket
                 )
-            except socket.timeout:
-                print("Timeout waiting for data...")
             except Exception as e:
                 print(f"Unexpected error: {e}")
 

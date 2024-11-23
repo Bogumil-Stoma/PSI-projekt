@@ -7,7 +7,7 @@ RETRY_LIMIT = 5
 MAX_BUF_SIZE = 512
 MESSAGE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 DEFAULT_PORT = 12345
-DEFAULT_HOST = "172.21.35.2"
+DEFAULT_HOST = "127.0.0.1"
 
 
 def start_client(host, port):
@@ -16,10 +16,7 @@ def start_client(host, port):
     retries = 0
 
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client_socket:
-        client_socket.settimeout(TIMEOUT)
-
         while retries < RETRY_LIMIT:
-            time.sleep(0.5)
             if send_packet(client_socket, seq_num, MAX_BUF_SIZE, address):
                 seq_num = 1 - seq_num
                 retries = 0
@@ -44,11 +41,9 @@ def send_packet(s: socket.socket, seq_num, max_payload_size, address):
         else:
             print(f"Invalid ACK, resend")
             return False
-    except socket.timeout:
-        print("Timeout waiting for ACK, resend")
-        return False
     except Exception as e:
         print(f"Unexpected error: {e}")
+        return False
 
 
 def construct_datagram(seq_num, max_payload_size):
