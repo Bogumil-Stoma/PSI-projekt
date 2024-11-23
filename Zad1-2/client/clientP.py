@@ -45,7 +45,7 @@ def send_packet(s: socket.socket, seq_num, max_payload_size, address):
             print(f"Invalid ACK, resend")
             return False
     except socket.timeout:
-        print(f"(client)Timeout waiting for ACK{seq_num}")
+        print(f"Timeout waiting for ACK{seq_num}")
         return False
     except Exception as e:
         print(f"Unexpected error: {e}")
