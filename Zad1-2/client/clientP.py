@@ -8,7 +8,7 @@ RETRY_LIMIT = 5
 MAX_BUF_SIZE = 512
 MESSAGE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 DEFAULT_PORT = 12345
-DEFAULT_HOST = "127.0.0.1"
+DEFAULT_HOST = "172.21.35.2"
 
 
 def start_client(host, port):
@@ -45,7 +45,7 @@ def send_packet(s: socket.socket, seq_num, max_payload_size, address):
             print(f"Invalid ACK, resend")
             return False
     except socket.timeout:
-        print(f"(server)Timeout waiting for ACK{seq_num}")
+        print(f"(client)Timeout waiting for ACK{seq_num}")
         return False
     except Exception as e:
         print(f"Unexpected error: {e}")
