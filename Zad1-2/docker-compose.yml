@@ -19,6 +19,9 @@ services:
       dockerfile: Dockerfile
     networks:
       - z35_network
+    tty: true
+    cap_add:
+      - NET_ADMIN
     depends_on:
       - sink
 
