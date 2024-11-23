@@ -12,7 +12,7 @@ def process_args():
         try:
             port = int(sys.argv[1])
         except ValueError as e:
-            print(f"Invalid port number")
+            print(f"Invalid port number: {e}")
             sys.exit(1)
         return port, DEFAULT_HOST
     elif len(sys.argv) > 2:
@@ -50,7 +50,7 @@ def start_server(host, port):
                     data, expected_seq, client_address, server_socket
                 )
             except socket.timeout:
-                print(f"Timeout waiting for ACK")
+                print("Timeout waiting for ACK")
             except Exception as e:
                 print(f"Unexpected error: {e}")
 

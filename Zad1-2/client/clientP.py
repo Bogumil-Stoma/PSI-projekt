@@ -1,7 +1,6 @@
 import socket
 import time
 import sys
-import random
 
 TIMEOUT = 5
 RETRY_LIMIT = 5
@@ -42,7 +41,7 @@ def send_packet(s: socket.socket, seq_num, max_payload_size, address):
             print(f"Received ACK{seq_num}")
             return True
         else:
-            print(f"Invalid ACK, resend")
+            print("Invalid ACK, resend")
             return False
     except socket.timeout:
         print(f"Timeout waiting for ACK{seq_num}")
