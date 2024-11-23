@@ -1,0 +1,31 @@
+version: "3"
+
+services:
+  sink:
+    container_name: z35_pserver_zad_12
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    networks:
+      z35_network:
+        ipv4_address: 172.21.35.2
+    tty: true
+    cap_add:
+      - NET_ADMIN
+  source:
+    container_name: z35_pclient_zad_12
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    networks:
+      - z35_network
+    tty: true
+    cap_add:
+      - NET_ADMIN
+    depends_on:
+      - sink
+
+networks:
+  z35_network:
+    name: z35_network
+    external: true
