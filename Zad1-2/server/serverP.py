@@ -49,6 +49,9 @@ def start_server(host, port):
                 expected_seq = handle_packet(
                     data, expected_seq, client_address, server_socket
                 )
+            except socket.timeout:
+                print(f"(client)Timeout waiting for ACK")
+                return False
             except Exception as e:
                 print(f"Unexpected error: {e}")
 
