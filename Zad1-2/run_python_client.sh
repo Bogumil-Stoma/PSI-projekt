@@ -1,1 +1,0 @@
-cd ./client && ./run.sh
