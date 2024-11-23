@@ -1,6 +1,6 @@
 # PSI-projekt
 
-## Jak uruchomić projekt?
+## Jak uruchomić zadanie 1.1
 
 - wykonać git clone
 - wejść w folder z zadaniem
