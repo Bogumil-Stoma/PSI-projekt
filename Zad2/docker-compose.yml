@@ -1,0 +1,14 @@
+version: "3"
+
+services:
+  server:
+    container_name: z35_pserver_zad2
+    build:
+      context: .
+      dockerfile: Dockerfile1
+
+  source:
+    container_name: z35_cclient_zad2
+    build:
+      context: .
+      dockerfile: Dockerfile2
