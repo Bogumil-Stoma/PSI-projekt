@@ -7,7 +7,7 @@
 
 #define DEFAULT_PORT 12345
 #define DEFAULT_IP "127.0.0.1"
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 102400 // 100 kB
 #define TEXT_SIZE 50
 
 typedef struct Node {
@@ -22,45 +22,50 @@ void bailout(const char *msg) {
 }
 
 Node* create_list(int num_nodes) {
-    Node* head = (Node*)malloc(sizeof(Node));
-    Node* current = head;
-
+    Node* head = NULL;
+    Node* last = NULL;
     for (int i = 0; i < num_nodes; i++) {
-
+        Node* current = (Node*)malloc(sizeof(Node));
         snprintf(current->text1, TEXT_SIZE, "Node %d Text1", i);
-        snprintf(current->text2, TEXT_SIZE, "Node %d Text2", i);
+        snprintf(current->text2, TEXT_SIZE, "Node %d Text2 - but longer", i);
 
-        if (i < num_nodes - 1) {
-            current->next = (Node*)malloc(sizeof(Node));
-            current = current->next;
-        } else {
-            current->next = NULL;
+        if (last != NULL) {
+            last->next = current;
+        }
+        last = current;
+        if (head == NULL) {
+            head = current;
         }
     }
     return head;
 }
 
+void add_string_to_stream(char *string, char *output_buffer, int *offset) {
+    int string_size = strlen(string);
+    uint32_t string_size_be = htonl(string_size);
 
-void send_list(int sockfd, Node* head) {
-    Node* current = head;
-    while (current != NULL) {
-        char buffer[BUFFER_SIZE];
-        int text1_len = strlen(current->text1);
-        uint32_t text1_len_be = htonl(text1_len);
-        int text2_len = strlen(current->text2);
-        uint32_t text2_len_be = htonl(text2_len);
-
-        send(sockfd, &text1_len_be, sizeof(int), 0);
-        send(sockfd, current->text1, text1_len, 0);
-
-        send(sockfd, &text2_len_be, sizeof(int), 0);
-        send(sockfd, current->text2, text2_len, 0);
-
-        current = current->next;
+    if (*offset + sizeof(string_size_be) + string_size > BUFFER_SIZE) {
+        bailout("Buffer overflow in serialization");
     }
 
-    int end_marker = 0;
-    send(sockfd, &end_marker, sizeof(int), 0);
+    // size of string
+    memcpy(output_buffer + *offset, &string_size_be, sizeof(string_size_be));
+    *offset += sizeof(string_size_be);
+
+    // string
+    memcpy(output_buffer + *offset, string, string_size);
+    *offset += string_size;
+}
+
+void serialize_to_binary(Node *data_list, char *output_buffer, int *bytes_written) {
+    int offset = 0;
+    Node *current = data_list;
+    while (current != NULL) {
+        add_string_to_stream(current->text1, output_buffer, &offset);
+        add_string_to_stream(current->text2, output_buffer, &offset);
+        current = current->next;
+    }
+    *bytes_written = offset;
 }
 
 
@@ -90,10 +95,15 @@ int main(int argc, char *argv[]) {
 
     printf("Connected on %s\n", ip);
 
-    Node* list = create_list(3);
-    send_list(sockfd, list);
+    Node* list = create_list(1000);
 
-    printf("Data sent to server successfully.\n");
+    char binary_buffer[BUFFER_SIZE] = {0};
+    int bytes_written = 0;
+
+    serialize_to_binary(list, binary_buffer, &bytes_written);
+
+    ssize_t sent_data = send(sockfd, binary_buffer, bytes_written, 0);
+    printf("Binary data sent to server (%zd / %d bytes)\n", sent_data, bytes_written);
 
     Node* current = list;
     while (current != NULL) {

@@ -2,9 +2,9 @@ import socket
 import sys
 import struct
 
-MAX_BUF_SIZE = 1024
 DEFAULT_PORT = 12345
 DEFAULT_HOST = "0.0.0.0"
+BUFFER_SIZE = 102400  # 100 kB
 
 def process_args():
     if len(sys.argv) == 2:
@@ -19,42 +19,59 @@ def process_args():
         sys.exit(1)
     return DEFAULT_PORT, DEFAULT_HOST
 
-def receive_data(conn):
-    while True:
-        text1_len_data = conn.recv(4)
-        if not text1_len_data:
-            print("End of data")
-            break
+def handle_client(client_socket):
+    data = client_socket.recv(BUFFER_SIZE)
+    if not data:
+        print("No data received.")
+        return
 
-        text1_len = struct.unpack("!I", text1_len_data)[0] # ! - bigendian, I - int
+    print(f"Received {len(data)} bytes of binary data.")
 
-        if text1_len == 0:
-            break
+    offset = 0
+    while offset < len(data):
 
-        text1 = conn.recv(text1_len).decode()
+        # read text1
+        if offset + 4 > len(data):
+           break
 
-        text2_len_data = conn.recv(4)
-        text2_len = struct.unpack("!I", text2_len_data)[0]
+        text1_size = struct.unpack("!I", data[offset:offset + 4])[0]
+        offset += 4
 
-        text2 = conn.recv(text2_len).decode()
+        if offset + text1_size > len(data):
+           break
 
-        print(f"Node received: text1='{text1}' s={text1_len}, text2='{text2}' s={text2_len}")
+        text1 = data[offset:offset + text1_size].decode()
+        offset += text1_size
+
+        # read text2
+        if offset + 4 > len(data):
+           break
+
+        text2_size = struct.unpack("!I", data[offset:offset + 4])[0]
+        offset += 4
+
+        if offset + text2_size > len(data):
+           break
+        text2 = data[offset:offset + text2_size].decode()
+        offset += text2_size
+
+        print(f"Node received: text1='{text1}' s={text1_size}, text2='{text2}' s={text2_size}")
 
 
 def start_server(host, port):
     print(f"Server starting on {host}:{port}")
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, BUFFER_SIZE)
     server_socket.bind((host, port))
     server_socket.listen(5)
     print(f"Server listening on {host}:{port}")
 
-    conn, addr = server_socket.accept()
-    print(f"Connection established with {addr}")
-
-    receive_data(conn)
-    conn.close()
-    print("Connection closed.")
+    while True:
+        client_socket, addr = server_socket.accept()
+        print(f"Connection established with {addr}")
+        handle_client(client_socket)
+        client_socket.close()
 
 if __name__ == "__main__":
     port, host = process_args()
