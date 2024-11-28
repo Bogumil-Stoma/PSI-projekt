@@ -6,9 +6,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile1
+    tty: true
 
   source:
     container_name: z35_cclient_zad2
     build:
       context: .
       dockerfile: Dockerfile2
+    tty: true
