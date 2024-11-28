@@ -13,47 +13,56 @@
 #define DEFAULT_IP "127.0.0.1"
 #define MESSAGE "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
+typedef struct Node {
+    char text1[50];
+    char text2[50];
+    struct Node* next;
+} Node;
+
 void bailout(const char *msg) {
     perror(msg);
     exit(EXIT_FAILURE);
 }
 
-void prepare_datagram(unsigned char *buffer, int size) {
-    buffer[0] = (size >> 8) & 0xFF;
-    buffer[1] = size & 0xFF;
-    int i;
-    for (i = HEADER_SIZE; i < size; i++) {
-        buffer[i] = MESSAGE[(i - HEADER_SIZE) % strlen(MESSAGE)];
-    }
+Node* create_list() {
+    Node* head = (Node*)malloc(sizeof(Node));
+    strcpy(head->text1, "FirstNodeText1");
+    strcpy(head->text2, "FirstNodeText2");
+
+    Node* second = (Node*)malloc(sizeof(Node));
+    strcpy(second->text1, "SecondNodeText1");
+    strcpy(second->text2, "SecondNodeText2");
+    head->next = second;
+
+    Node* third = (Node*)malloc(sizeof(Node));
+    strcpy(third->text1, "ThirdNodeText1");
+    strcpy(third->text2, "ThirdNodeText2");
+    second->next = third;
+    third->next = NULL;
+
+    return head;
 }
 
-bool send_and_receive(int sock, struct sockaddr_in *server_addr, int size) {
-    unsigned char *buffer = (unsigned char *)malloc(size);
-    if (!buffer) {
-        bailout("malloc failed");
-        return false;
+void send_list(int sockfd, Node* head) {
+    Node* current = head;
+    while (current != NULL) {
+        char buffer[BUFFER_SIZE];
+        int text1_len = strlen(current->text1);
+        int text2_len = strlen(current->text2);
+
+        send(sockfd, &text1_len, sizeof(int), 0);
+        send(sockfd, current->text1, text1_len, 0);
+
+        send(sockfd, &text2_len, sizeof(int), 0);
+        send(sockfd, current->text2, text2_len, 0);
+
+        current = current->next;
     }
 
-    prepare_datagram(buffer, size);
-
-    if (sendto(sock, buffer, size, 0, (struct sockaddr *)server_addr, sizeof(*server_addr)) == -1) {
-        free(buffer);
-        printf("sendto failed");
-        return false;
-    }
-
-    char response[SERVER_RESPONSE_SIZE];
-    int recv_len = recvfrom(sock, response, sizeof(response), 0, NULL, NULL);
-    if (recv_len == -1) {
-        free(buffer);
-        bailout("recvfrom failed");
-        return false;
-    }
-
-    printf("Sent datagram of size: %d, received response: %.*s\n", size, recv_len, response);
-    free(buffer);
-    return true;
+    int end_marker = 0;
+    send(sockfd, &end_marker, sizeof(int), 0);
 }
+
 
 int main(int argc, char *argv[]) {
     int port = (argc >= 2) ? atoi(argv[1]) : DEFAULT_PORT;
@@ -64,6 +73,10 @@ int main(int argc, char *argv[]) {
         bailout("socket creation failed");
     }
 
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(SERVER_PORT);
+    inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr);
+
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
@@ -73,24 +86,17 @@ int main(int argc, char *argv[]) {
         bailout("Invalid server IP address");
     }
 
-    printf("Client started, sending datagrams to %s:%d\n", ip, port);
-    int datagram_size, i, j;
-    for (i = 1; i < ITERATIONS; i++) {
-        datagram_size = i * BYTES_ITERATION_SIZE;
-        if (!send_and_receive(sock, &server_addr, datagram_size)){
-            printf("idk some fail");
-            break;
-        }
+    if (connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        close(sockfd);
+        bailout("Connection failed");
     }
-    int start = datagram_size - BYTES_ITERATION_SIZE;
-    printf("Initial datagram size: %d\n", datagram_size);
-    for (j = 1; j < BYTES_ITERATION_SIZE; j++) {
-        datagram_size = start + j;
-        if (!send_and_receive(sock, &server_addr, datagram_size)){
-            break;
-	    exit(EXIT_FAILURE);
-        }
-    }
+
+    printf("Connected on %s\n", ip);
+
+    Node* list = create_list();
+    send_list(sockfd, list);
+
+    printf("Data sent to server successfully.\n");
 
     close(sock);
     return 0;

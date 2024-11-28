@@ -1,11 +1,10 @@
 import socket
 import sys
+import struct
 
-MAX_BUF_SIZE = 512
-TIMEOUT = 5
+MAX_BUF_SIZE = 1024
 DEFAULT_PORT = 12345
 DEFAULT_HOST = "0.0.0.0"
-
 
 def process_args():
     if len(sys.argv) == 2:
@@ -20,40 +19,42 @@ def process_args():
         sys.exit(1)
     return DEFAULT_PORT, DEFAULT_HOST
 
+def receive_data(conn):
+    while True:
+        text1_len_data = conn.recv(4)
+        if not text1_len_data:
+            print("End of data")
+            break
 
-def handle_packet(data, expected_seq, client_address, socket: socket.socket):
-    seq_num = data[0]
+        text1_len = struct.unpack("!I", text1_len_data)[0] # ! - bigendian, I - int
 
-    if seq_num == expected_seq:
-        print(f"Received packet with sequence {seq_num}")
-        expected_seq = 1 - expected_seq
-    else:
-        print(f"Duplicate packet with sequence {seq_num}")
+        if text1_len == 0:
+            break
 
-    socket.sendto(bytes([seq_num]), client_address)
-    print(f"Sent ACK{seq_num}")
+        text1 = conn.recv(text1_len).decode()
 
-    return expected_seq
+        text2_len_data = conn.recv(4)
+        text2_len = struct.unpack("!I", text2_len_data)[0]
+
+        text2 = conn.recv(text2_len).decode()
+
+        print(f"Node received: text1='{text1}' s={text1_len}, text2='{text2}' s={text2_len}")
 
 
 def start_server(host, port):
-    print(f"Server listening on port {port}...")
+    print(f"Server starting on {host}:{port}")
 
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server_socket:
-        server_socket.bind((host, port))
-        server_socket.settimeout(TIMEOUT)
-        expected_seq = 0
-        while True:
-            try:
-                data, client_address = server_socket.recvfrom(MAX_BUF_SIZE)
-                expected_seq = handle_packet(
-                    data, expected_seq, client_address, server_socket
-                )
-            except socket.timeout:
-                print("Timeout waiting for ACK")
-            except Exception as e:
-                print(f"Unexpected error: {e}")
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((host, port))
+    server_socket.listen(5)
+    print(f"Server listening on {host}:{port}")
 
+    conn, addr = server_socket.accept()
+    print(f"Connection established with {addr}")
+
+    receive_data(conn)
+    conn.close()
+    print("Connection closed.")
 
 if __name__ == "__main__":
     port, host = process_args()
