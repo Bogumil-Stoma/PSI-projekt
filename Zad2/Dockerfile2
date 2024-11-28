@@ -1,6 +1,6 @@
 FROM gcc:4.9
 
-COPY ./ ./
-RUN gcc -o client clientC.c
+COPY ./client.c ./
+RUN gcc -o client client.c
 
 CMD ["./client"]
