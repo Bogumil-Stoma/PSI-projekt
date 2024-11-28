@@ -10,7 +10,6 @@ services:
       z35_network:
         ipv4_address: 172.21.35.2
     tty: true
-    network_mode: "host"
 
   client:
     container_name: z35_cclient_zad2
@@ -20,7 +19,6 @@ services:
     networks:
       - z35_network
     tty: true
-    network_mode: "host"
     depends_on:
       - server
     command: ["sh", "-c", "sleep 2 && ./client"]
