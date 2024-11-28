@@ -4,7 +4,8 @@ import struct
 
 DEFAULT_PORT = 12345
 DEFAULT_HOST = "0.0.0.0"
-BUFFER_SIZE = 102400  # 100 kB
+BUFFER_SIZE = 102400  # 100 KB
+
 
 def process_args():
     if len(sys.argv) == 2:
@@ -19,6 +20,27 @@ def process_args():
         sys.exit(1)
     return DEFAULT_PORT, DEFAULT_HOST
 
+
+def is_data_accessible(data, offset, num_of_bytes):
+    return offset + num_of_bytes <= len(data)
+
+
+def read_string(data, offset):
+    if not is_data_accessible(data, offset, 4):
+        return None, 0, offset
+
+    text_size = struct.unpack("!I", data[offset:offset + 4])[0]
+    offset += 4
+
+    if not is_data_accessible(data, offset, text_size):
+        return None, 0, offset
+
+    text = data[offset:offset + text_size].decode()
+    offset += text_size
+
+    return text, text_size, offset
+
+
 def handle_client(client_socket):
     data = client_socket.recv(BUFFER_SIZE)
     if not data:
@@ -29,33 +51,18 @@ def handle_client(client_socket):
 
     offset = 0
     while offset < len(data):
-
         # read text1
-        if offset + 4 > len(data):
-           break
-
-        text1_size = struct.unpack("!I", data[offset:offset + 4])[0]
-        offset += 4
-
-        if offset + text1_size > len(data):
-           break
-
-        text1 = data[offset:offset + text1_size].decode()
-        offset += text1_size
+        text1, text1_size, offset = read_string(data, offset)
+        if text1 is None:
+            break
 
         # read text2
-        if offset + 4 > len(data):
-           break
+        text2, text2_size, offset = read_string(data, offset)
+        if text2 is None:
+            break
 
-        text2_size = struct.unpack("!I", data[offset:offset + 4])[0]
-        offset += 4
-
-        if offset + text2_size > len(data):
-           break
-        text2 = data[offset:offset + text2_size].decode()
-        offset += text2_size
-
-        print(f"Node received: text1='{text1}' s={text1_size}, text2='{text2}' s={text2_size}")
+        print(f"Node received: text1='{text1}' s={text1_size}, \
+              text2='{text2}', s={text2_size}")
 
 
 def start_server(host, port):
@@ -72,6 +79,7 @@ def start_server(host, port):
         print(f"Connection established with {addr}")
         handle_client(client_socket)
         client_socket.close()
+
 
 if __name__ == "__main__":
     port, host = process_args()

@@ -7,7 +7,7 @@
 
 #define DEFAULT_PORT 12345
 #define DEFAULT_IP "127.0.0.1"
-#define BUFFER_SIZE 102400 // 100 kB
+#define BUFFER_SIZE 102400 // 100 KB
 #define TEXT_SIZE 50
 
 typedef struct Node {
@@ -77,6 +77,12 @@ int main(int argc, char *argv[]) {
     int sockfd;
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         bailout("Socket creation failed");
+    }
+
+    int buff_size = BUFFER_SIZE;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &buff_size, sizeof(buff_size)) < 0) {
+        close(sockfd);
+        bailout("Failed to set send buffer size");
     }
 
     struct sockaddr_in server_addr;

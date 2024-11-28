@@ -4,17 +4,28 @@ services:
   server:
     container_name: z35_pserver_zad2
     build:
-      context: .
-      dockerfile: Dockerfile1
+      context: ./server
+      dockerfile: Dockerfile
+    networks:
+      z35_network:
+        ipv4_address: 172.21.35.2
     tty: true
     network_mode: "host"
 
   client:
     container_name: z35_cclient_zad2
     build:
-      context: .
-      dockerfile: Dockerfile2
+      context: ./client
+      dockerfile: Dockerfile
+    networks:
+      - z35_network
     tty: true
     network_mode: "host"
     depends_on:
       - server
+    command: ["sh", "-c", "sleep 2 && ./client"]
+
+networks:
+  z35_network:
+    name: z35_network
+    external: true
