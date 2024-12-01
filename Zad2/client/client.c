@@ -7,7 +7,7 @@
 
 #define DEFAULT_PORT 12345
 #define DEFAULT_IP "172.21.35.2"
-#define BUFFER_SIZE 102400 // 100 KB
+#define BUFFER_SIZE 202400 // 100 KB
 #define TEXT_SIZE 50
 
 typedef struct Node {
