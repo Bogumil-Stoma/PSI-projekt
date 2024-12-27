@@ -41,9 +41,9 @@ po czym obie strony ustanawiają wspólny klucz szyfrujący.
 Klient wysyła zaszyfrowaną wiadomość do serwera, poleceniem send <treść wiadomości>.
 Serwer wyświetla rozszyfrowaną wiadomość wraz z adresem nadawcy.
 
-#### Wyświetlenie listy połączonych do serweraklientów
+#### Wyświetlenie listy połączonych do serwera klientów
 
-Na serwerze używając polecenia ls wyświetlamy listę akutalnie aktywnych połączeń numer-adress
+Na serwerze używając polecenia ls wyświetlamy listę aktualnie aktywnych połączeń numer-adress
 
 #### Zakończenie sesji przez klienta
 
@@ -72,8 +72,8 @@ Po odebraniu wiadomości EndSession klient musi ponownie zainicjować sesję, wy
 - Znane są publiczne wartość g i p gdzie, p jest dużą liczbą pierwszą, g dowolną liczbę nazywaną generator.
 - a to wygenerowana prywatna liczba klienta trzymana w tajemnicy.
 - b to wygenerowana prywatna liczba serwera trzymana w tajemnicy.
-- Klient wysyła swój klucz publiczny A (A = g^a mod p) za pomocą wiadomosci ClientHello.
-- Serwer odpowiada swoim kluczem publicznym B (B = g^b mod p) za pomocą wiadomosci ServerHello.
+- Klient wysyła swój klucz publiczny A (A = g^a mod p) za pomocą wiadomości ClientHello.
+- Serwer odpowiada swoim kluczem publicznym B (B = g^b mod p) za pomocą wiadomości ServerHello.
 - Obie strony obliczają wspólny klucz K:
     - Klient: K = B^a mod p.
     - Serwer: K = A^b mod p.
@@ -91,9 +91,9 @@ Mechanizm Encrypt-then-MAC: HMAC z SHA-256.
 - Wiadomość jest szyfrowana algorytmem AES, wykorzystując wspólny klucz.
 - Na podstawie zaszyfrowanej treści (ciphertext) i klucza generowany jest kod MAC (HMAC).
 - Klient wysyła ciphertext oraz MAC w strukturze wiadomości.
-- Odbiorca obliczaja HMAC na podstawie otrzymanej zaszyfrowanej wiadomosci i wspólnego klucza.
+- Odbiorca oblicza HMAC na podstawie otrzymanej zaszyfrowanej wiadomości i wspólnego klucza.
 - Odbiorca weryfikuje obliczony HMAC z przesłanym MAC.
-- Po pomyślnej weryfikacji, odbiorca odszyfrowuje wiadomość przy użyciu wspólnego klucza.
+- Po pomyślnej weryfikacji odbiorca odszyfrowuje wiadomość przy użyciu wspólnego klucza.
 
 ## Architektura
 

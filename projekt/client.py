@@ -1,54 +1,75 @@
 import socket
-import struct
-import sys
 import time
+from utils import *
 
-DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 12345
 
-def send_string(sock, text):
-    encoded_text = text.encode()
-    text_size = len(encoded_text)
-    packed_size = struct.pack("!I", text_size)
-    sock.sendall(packed_size + encoded_text)
+class DiffieHellmanClient:
+    def __init__(self, host, port, g, p):
+        self.host = host
+        self.port = port
+        self.g = g
+        self.p = p
+        self.client_socket = None
 
-def read_string(sock):
-    size_data = sock.recv(4)
-    if not size_data:
-        return None
-    text_size = struct.unpack("!I", size_data)[0]
-    text_data = sock.recv(text_size)
-    return text_data.decode()
+    def perform_key_exchange(self, private_key, public_key):
+        hello_message = struct.pack("!11sIII", b"ClientHello", public_key, self.p,
+                                    self.g)
+        self.client_socket.sendall(hello_message)
+        print(f"Sent ClientHello with A={public_key}, p={self.p}, g={self.g}")
 
-def start_client(host, port):
-    print(f"Connecting to server at {host}:{port}...")
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.settimeout(10)
-    try:
-        client_socket.connect((host, port))
-        print(f"Connected to server.")
+        server_hello = receive_data(self.client_socket, 15)  # 11 + 16 + 16
+        _, server_public_key = struct.unpack("!11sI", server_hello)
 
-        while True:
-            message = "hello"
-            print(f"Sending: {message}")
-            send_string(client_socket, message)
+        print(f"Received ServerHello with B={server_public_key}")
 
-            response = read_string(client_socket)
-            print(f"Received: {response}")
+        shared_key = calculate_shared_key(server_public_key, private_key, self.p)
+        symmetric_key = derive_symmetric_key(shared_key)
 
-    except Exception as e:
-        print(f"Error: {e}")
-    finally:
-        client_socket.close()
-        print("Disconnected from server.")
+        print(f"Shared key K computed: {shared_key}, Symmetric key derived.")
+        return symmetric_key
+
+    def communicate_with_server(self, symmetric_key):
+        try:
+            print("Connected to the server.")
+
+            while True:
+                message = "hello"
+
+                print(f"Sending: {message}")
+
+                send_string(self.client_socket, message)
+                response = read_string(self.client_socket)
+
+                print(f"Received: {response}")
+
+                time.sleep(1)
+        except ConnectionError:
+            print("Lost connection to the server.")
+        except Exception as e:
+            print(f"Error: {e}")
+        finally:
+            print("Disconnected from server.")
+
+    def start(self):
+        private_key = generate_private_key()
+        public_key = calculate_public_key(self.g, private_key, self.p)
+
+        print(f"Connecting to server at {self.host}:{self.port}...")
+
+        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client_socket.settimeout(10)
+        self.client_socket.connect((self.host, self.port))
+
+        try:
+            symmetric_key = self.perform_key_exchange(private_key, public_key)
+            self.communicate_with_server(symmetric_key)
+        except Exception as e:
+            print(f"Connection error: {e}")
+        finally:
+            self.client_socket.close()
+
 
 if __name__ == "__main__":
-    host = DEFAULT_HOST
-    port = DEFAULT_PORT
-    if len(sys.argv) > 1:
-        host = sys.argv[1]
-    if len(sys.argv) > 2:
-        port = int(sys.argv[2])
-
-
-    start_client(host, port)
+    port, host = process_args("client")
+    client = DiffieHellmanClient(host, port, 5, 23)
+    client.start()
