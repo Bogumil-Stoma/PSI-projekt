@@ -102,6 +102,8 @@ Struktury wiadomości:
 - ClientHello: Klient wysyła nieszyfrowaną wiadomość inicjującą połączenie, która zawiera:
   - 11B - "ClientHello"
   - 16B - Liczba A
+  -  8B - liczba p
+  -  8B - liczba g
 - ServerHello: Serwer odpowiada nieszyfrowaną wiadomością, która zawiera:
   - 11B - "ServerHello"
   - 16B - Liczba B

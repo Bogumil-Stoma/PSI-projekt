@@ -5,21 +5,26 @@ import argparse
 
 DEFAULT_PORT = 12345
 
+
 def generate_private_key(bits=16):
     """Generate a private key."""
     return random.randint(2, 2**bits)
+
 
 def calculate_public_key(g, private_key, p):
     """Calculate the public key A or B."""
     return pow(g, private_key, p)
 
+
 def calculate_shared_key(public_key, private_key, p):
     """Calculate the shared secret key K."""
     return pow(public_key, private_key, p)
 
+
 def derive_symmetric_key(shared_key):
     """Derive a symmetric key from the shared secret key using SHA-256."""
     return sha256(str(shared_key).encode()).digest()
+
 
 def send_string(sock, text):
     """Send a string message to a socket."""
@@ -45,6 +50,7 @@ def send_hello_message(sock, message_type, public_key, p, g):
     hello_message = struct.pack("!11s16s16s16s", message_type.encode(), str(public_key).encode(), str(p).encode(), str(g).encode())
     sock.sendall(hello_message)
 
+
 def read_string(sock):
     size_data = sock.recv(4)
     if not size_data:
@@ -52,6 +58,7 @@ def read_string(sock):
     text_size = struct.unpack("!I", size_data)[0]
     text_data = sock.recv(text_size)
     return text_data.decode()
+
 
 def process_args(connection_type: str):
     if connection_type == "server":

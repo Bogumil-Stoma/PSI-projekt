@@ -1,5 +1,4 @@
 import socket
-import time
 from utils import *
 
 
@@ -17,7 +16,7 @@ class DiffieHellmanClient:
         self.client_socket.sendall(hello_message)
         print(f"Sent ClientHello with A={public_key}, p={self.p}, g={self.g}")
 
-        server_hello = receive_data(self.client_socket, 15)  # 11 + 16 + 16
+        server_hello = receive_data(self.client_socket, 15)  # 11 + 16 + 8 + 8
         _, server_public_key = struct.unpack("!11sI", server_hello)
 
         print(f"Received ServerHello with B={server_public_key}")
@@ -28,45 +27,77 @@ class DiffieHellmanClient:
         print(f"Shared key K computed: {shared_key}, Symmetric key derived.")
         return symmetric_key
 
-    def communicate_with_server(self, symmetric_key):
+    def connect(self):
+        try:
+            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client_socket.settimeout(10)
+            print(f"Connecting to server at {self.host}:{self.port}...")
+            self.client_socket.connect((self.host, self.port))
+            print("Connected")
+            self.symmetric_key = self.perform_key_exchange(self.private_key, self.public_key)
+            self.connected = True
+        except Exception as e:
+            print(f"Connection error: {e}")
+
+    def dissconnect(self):
+        self.client_socket.close()
+        self.connected = False
+        print("disconnected")
+
+    def send_message(self, message):
         try:
             print("Connected to the server.")
 
-            while True:
-                message = "hello"
+            print(f"Sending: {message}")
 
-                print(f"Sending: {message}")
+            send_string(self.client_socket, message)
+            #response = read_string(self.client_socket)
+            #print(f"Received: {response}")
 
-                send_string(self.client_socket, message)
-                response = read_string(self.client_socket)
-
-                print(f"Received: {response}")
-
-                time.sleep(1)
         except ConnectionError:
             print("Lost connection to the server.")
+            self.connected = False
         except Exception as e:
             print(f"Error: {e}")
-        finally:
-            print("Disconnected from server.")
+            self.connected = False
+
+    def print_commands(self):
+        print()
+        print("Commands:")
+        print("---------------------")
+        print("connect")
+        print("send <message content>")
+        print("end")
+        print("---------------------")
 
     def start(self):
-        private_key = generate_private_key()
-        public_key = calculate_public_key(self.g, private_key, self.p)
+        self.private_key = generate_private_key()
+        self.public_key = calculate_public_key(self.g, self.private_key, self.p)
 
-        print(f"Connecting to server at {self.host}:{self.port}...")
-
-        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.client_socket.settimeout(10)
-        self.client_socket.connect((self.host, self.port))
-
-        try:
-            symmetric_key = self.perform_key_exchange(private_key, public_key)
-            self.communicate_with_server(symmetric_key)
-        except Exception as e:
-            print(f"Connection error: {e}")
-        finally:
-            self.client_socket.close()
+        self.connected = False
+        self.print_commands()
+        while True:
+            input_args = input("\nCommand: ").split(" ", 1)
+            command = input_args[0]
+            if command == "connect":
+                if (self.connected):
+                    print("Already connected!")
+                else:
+                    self.connect()
+            elif command == "send":
+                if (not self.connected):
+                    print("Serwer not connected! use connect command")
+                elif len(input_args) < 2:
+                    print("send reqired message as paramter!")
+                else:
+                    self.send_message(input_args[1])
+            elif command == "end":
+                if (not self.connected):
+                    print("Serwer not connected!  use connect command")
+                else:
+                    self.dissconnect()
+            else:
+                print(f"command \"{command}\" not found")
 
 
 if __name__ == "__main__":

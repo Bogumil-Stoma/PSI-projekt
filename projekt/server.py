@@ -5,6 +5,7 @@ import time
 
 BUFFER_SIZE = 102400  # 100 KB
 
+
 class DiffieHellmanServer:
     def __init__(self, host, port):
         self.p = None
