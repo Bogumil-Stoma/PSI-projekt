@@ -9,6 +9,18 @@ class DiffieHellmanClient:
         self.g = g
         self.p = p
         self.client_socket = None
+        self.connected = False
+
+    def start(self):
+        self.private_key = generate_private_key()
+        self.public_key = calculate_public_key(self.g, self.private_key, self.p)
+        try:
+            self.handle_input()
+        except KeyboardInterrupt:
+            if self.connected:
+                self.dissconnect()
+        finally:
+            print("\nClient shut down.")
 
     def perform_key_exchange(self, private_key, public_key):
         hello_message = struct.pack("!11sIII", b"ClientHello", public_key, self.p,
@@ -70,11 +82,7 @@ class DiffieHellmanClient:
         print("end")
         print("---------------------")
 
-    def start(self):
-        self.private_key = generate_private_key()
-        self.public_key = calculate_public_key(self.g, self.private_key, self.p)
-
-        self.connected = False
+    def handle_input(self):
         self.print_commands()
         while True:
             input_args = input("\nCommand: ").split(" ", 1)
@@ -88,7 +96,7 @@ class DiffieHellmanClient:
                 if (not self.connected):
                     print("Serwer not connected! use connect command")
                 elif len(input_args) < 2:
-                    print("send reqired message as paramter!")
+                    print("send reqired message paramter!")
                 else:
                     self.send_message(input_args[1])
             elif command == "end":
@@ -104,4 +112,3 @@ if __name__ == "__main__":
     port, host = process_args("client")
     client = DiffieHellmanClient(host, port, 5, 23)
     client.start()
-    
