@@ -1,8 +1,7 @@
 import socket
 import threading
+import struct
 from utils import *
-
-BUFFER_SIZE = 102400  # 100 KB
 
 
 class Connection(threading.Thread):
@@ -20,8 +19,8 @@ class Connection(threading.Thread):
     def run(self):
         """Handle the client logic."""
         try:
-            symmetric_key = self.perform_key_exchange(self.client_socket)
-            self.handle_client_message(self.client_socket, symmetric_key)
+            self.symmetric_key = self.perform_key_exchange(self.client_socket)
+            self.handle_client_message(self.client_socket)
         except Exception as e:
             self.print(f"Error with client {self.client_id}: {e}")
         finally:
@@ -40,9 +39,9 @@ class Connection(threading.Thread):
     def perform_key_exchange(self, client_socket):
         self.print("Waiting for ClientHello")
         client_hello = receive_data(client_socket, 23)
-        _, client_public_key, self.g, self.p = struct.unpack("!11sIII", client_hello)
+        _, client_public_key, self.p, self.g = struct.unpack("!11sIII", client_hello)
 
-        self.print(f"Received ClientHello with A={client_public_key}")
+        self.print(f"Received ClientHello with A={client_public_key} p={self.p} g={self.g}")
 
         # Server's private key and public key calculation
         server_private_key = generate_private_key()
@@ -58,11 +57,26 @@ class Connection(threading.Thread):
         self.print(f"Shared key K computed: {shared_key}, Symmetric key derived.")
         return symmetric_key
 
-    def handle_client_message(self, client_socket, symmetric_key):
+    def handle_client_message(self, client_socket):
         self.print("Waiting for messages from the client.")
         while not self.stop_event.is_set():
-            message = read_string(client_socket)
-            self.print(f"Received: {message}")
+
+            # Read data
+            message_size_data = receive_data(self.client_socket, 4)
+            message_size = struct.unpack("!I", message_size_data)[0]
+            iv = receive_data(self.client_socket, 16)
+            ciphertext = receive_data(self.client_socket, message_size)
+            mac = receive_data(self.client_socket, 32)
+
+            calculated_mac = calculate_hmac(ciphertext, self.symmetric_key)
+            if mac != calculated_mac:
+                self.print("Authentication failed")
+                self.print("get", mac, "\ncalculated", calculated_mac)
+                # todo: disconnect client
+                return
+
+            decrypted_message = aes_cbc_decrypt(iv, ciphertext, self.symmetric_key)
+            self.print(f"Recived: {decrypted_message}")
 
             # todo: replace it by ennd connection message
             response = "Hello from server!"

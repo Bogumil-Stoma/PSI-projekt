@@ -124,3 +124,6 @@ Struktury wiadomości:
 29.12.24 - 05.01.24 - Testowanie i walidacja rozwiązania
 
 05.01.24 - 12.01.24 - Opracowanie sprawozdania końcowego
+
+## Links
+- https://cryptii.com/pipes/aes-encryption

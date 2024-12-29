@@ -1,4 +1,6 @@
 import socket
+import struct
+import os
 from utils import *
 
 
@@ -23,8 +25,8 @@ class DiffieHellmanClient:
             print("\nClient shut down.")
 
     def perform_key_exchange(self, private_key, public_key):
-        hello_message = struct.pack("!11sIII", b"ClientHello", public_key, self.p,
-                                    self.g)
+        hello_message = struct.pack("!11sIII", b"ClientHello",
+                                    public_key, self.p, self.g)
         self.client_socket.sendall(hello_message)
         print(f"Sent ClientHello with A={public_key}, p={self.p}, g={self.g}")
 
@@ -60,7 +62,25 @@ class DiffieHellmanClient:
         try:
             print(f"Sending: {message}")
 
-            send_string(self.client_socket, message)
+            # 16B
+            iv = os.urandom(16)
+
+            # length of message cailed to multiple of 16
+            ciphertext = aes_cbc_encrypt(iv, message, self.symmetric_key)
+            message_size = struct.pack("!I", len(ciphertext))
+
+            # 32B
+            mac = calculate_hmac(ciphertext, self.symmetric_key)
+
+            # Send both encrypted message and HMAC to the server
+            final_message = message_size + iv + ciphertext + mac
+
+            #print("key:  ", self.symmetric_key.hex())
+            #print("iv:   ", iv.hex())
+            #print("text: ", ciphertext.hex())
+            #print("mac:  ", mac.hex())
+
+            self.client_socket.send(final_message)
 
         except ConnectionError:
             print("Lost connection to the server.")
@@ -68,6 +88,7 @@ class DiffieHellmanClient:
         except Exception as e:
             print(f"Error: {e}")
             self.connected = False
+            raise e
 
     def print_commands(self):
         print()

@@ -1,9 +1,12 @@
 import random
-from hashlib import sha256
 import struct
 import argparse
 import threading
 import time
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
+from Crypto.Hash import HMAC, SHA256
+import hashlib
 
 DEFAULT_PORT = 12345
 
@@ -24,8 +27,32 @@ def calculate_shared_key(public_key, private_key, p):
 
 
 def derive_symmetric_key(shared_key):
-    """Derive a symmetric key from the shared secret key using SHA-256."""
-    return sha256(str(shared_key).encode()).digest()
+    """Derive a symmetric key from the shared secret key"""
+    return hashlib.sha256(str(shared_key).encode()).digest()[:16]
+
+
+BLOCK_SIZE = 16
+
+
+def aes_cbc_encrypt(iv, plaintext, key):
+    """Encrypt plaintext using AES in CBC mode."""
+    padded_data = pad(plaintext.encode(), BLOCK_SIZE)
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    ciphertext = cipher.encrypt(padded_data)
+    return ciphertext
+
+
+def aes_cbc_decrypt(iv, ciphertext, key):
+    """Decrypt ciphertext using AES in CBC mode."""
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    decrypted_data = unpad(cipher.decrypt(ciphertext), BLOCK_SIZE)
+    return decrypted_data.decode()
+
+
+def calculate_hmac(message, key):
+    """Calculate HMAC-SHA-256 for the message using the given key."""
+    hmac_obj = HMAC.new(key, message, SHA256)
+    return hmac_obj.digest()
 
 
 def send_string(sock, text):
