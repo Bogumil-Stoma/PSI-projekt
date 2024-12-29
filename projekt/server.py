@@ -6,15 +6,16 @@ BUFFER_SIZE = 102400  # 100 KB
 
 
 class Connection(threading.Thread):
-    def __init__(self, client_id, client_socket, addr, remove_callback):
+    def __init__(self, client_id, client_socket, addr, remove_callback, printer):
         super().__init__()
         self.client_id = client_id
         self.client_socket = client_socket
         self.addr = addr
         self.remove_callback = remove_callback
+        self.printer = printer
         self.p = None
         self.g = None
-        self.running = True
+        self.stop_event = threading.Event()
 
     def run(self):
         """Handle the client logic."""
@@ -28,13 +29,13 @@ class Connection(threading.Thread):
 
     def stop(self):
         """Close the connection and clean up."""
-        self.running = False
         self.client_socket.close()
         self.print(f"Connection with {self.addr} closed.")
         self.remove_callback(self)
+        self.stop_event.set()
 
     def print(self, mess):
-        print(f"Client {self.client_id}:", mess)
+        self.printer(f"Client {self.client_id}: {mess}")
 
     def perform_key_exchange(self, client_socket):
         self.print("Waiting for ClientHello")
@@ -59,18 +60,18 @@ class Connection(threading.Thread):
 
     def handle_client_message(self, client_socket, symmetric_key):
         self.print("Waiting for messages from the client.")
-        while self.running:
+        while not self.stop_event.is_set():
             message = read_string(client_socket)
             self.print(f"Received: {message}")
-            response = "Hello from server!"
-            send_string(client_socket, response)
 
 
 class ConnectionsHandler(threading.Thread):
-    def __init__(self, server_socket, timeout=1.0):
+    def __init__(self, server_socket, printer, timeout=1.0):
         super().__init__()
         self.server_socket = server_socket
+        self.printer = printer
         self.timeout = timeout
+        self.lock = threading.Lock()
         self.stop_event = threading.Event()
         self.next_client_id = 0
         self.connections = []
@@ -83,7 +84,11 @@ class ConnectionsHandler(threading.Thread):
                 try:
                     client_socket, addr = self.server_socket.accept()
                     self.print(f"Connection {self.next_client_id} established with {addr}")
-                    connection = Connection(self.next_client_id, client_socket, addr, self.remove_connection)
+                    connection = Connection(self.next_client_id,
+                                            client_socket,
+                                            addr,
+                                            self.remove_connection,
+                                            self.printer)
                     self.connections.append(connection)
                     self.next_client_id += 1
                     connection.start()
@@ -92,34 +97,43 @@ class ConnectionsHandler(threading.Thread):
         except Exception as e:
             self.print(f"encountered an error: {e}")
         finally:
-            self.print("stopped.")
+            self.print("Stopped")
 
     def stop(self):
         """Stop accepting connections."""
         self.stop_event.set()
+        self.stop_event.wait()
+        self.join()
+        self.close_all_connections()
 
     def print(self, mess):
-        print("ConnectionsHandler:", mess)
+        self.printer(f"ConnectionsHandler: {mess}")
 
     def remove_connection(self, connection):
         """Remove a connection from the active list."""
-        if connection in self.connections:
-            self.connections.remove(connection)
+        if self.stop_event.is_set():
+            return
+        with self.lock:
+            if connection in self.connections:
+                self.connections.remove(connection)
 
     def close_all_connections(self):
         """Close all active connections."""
-        for connection in self.connections:
-            connection.stop()
-            connection.join()
-        self.connections = []
+        self.print("Closing all connections")
+        with self.lock:
+            for connection in self.connections:
+                connection.stop()
+                connection.join()
+                connection.stop_event.wait()
+            self.connections = []
 
     def close_connection(self, id):
         """Close a specific connection by address."""
-        for connection in self.connections:
-            if connection.client_id == id:
-                connection.stop()
-                connection.join()
-                break
+        with self.lock:
+            for connection in self.connections:
+                if connection.client_id == id:
+                    connection.stop()
+                    break
 
 
 class DiffieHellmanServer:
@@ -127,43 +141,51 @@ class DiffieHellmanServer:
         self.host = host
         self.port = port
         self.server_socket = None
-        self.connectionHandler = None
+        self.connection_handler = None
+        self.printer = None
 
     def start(self):
         """Start the server."""
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(5)
+        self.running = True
 
         print(f"Server listening on {self.host}:{self.port}...")
 
-        self.connectionHandler = ConnectionsHandler(self.server_socket)
-        self.connectionHandler.start()
+        self.printer = ThreadPrinter(self.print_comand_input)
+        self.printer.start()
+
+        self.connection_handler = ConnectionsHandler(self.server_socket, self.printer.print)
+        self.connection_handler.start()
 
         try:
             self.handle_input()
         except KeyboardInterrupt:
-            print("\nShutting down server.")
+            print("shutdown")
             self.stop()
         finally:
-            print("\nServer shut down.")
+            print("\nServer shut down\n")
 
     def stop(self):
         """Stop the server and clean up."""
-        if self.connectionHandler:
-            self.connectionHandler.stop()
-            self.connectionHandler.join()
-        self.connectionHandler.close_all_connections()
+        self.running = False
+        if self.connection_handler:
+            self.connection_handler.stop()
+            self.connection_handler.join()
         if self.server_socket:
             self.server_socket.close()
-        print("Server stopped.")
+        if self.printer:
+            self.printer.stop()
 
     def print_commands(self):
         print()
         print("Commands:")
         print("---------------------")
+        print("help")
         print("ls")
         print("end <connection id>")
+        print("shutdown")
         print("---------------------")
 
     def handle_input(self):
@@ -171,34 +193,40 @@ class DiffieHellmanServer:
         while True:
             input_args = input("\nCommand: ").split(" ", 1)
             command = input_args[0]
-            if command == "ls":
+            if command == "help":
+                self.print_commands()
+            elif command == "ls":
                 self.print_connections()
             elif command == "end":
                 if len(input_args) < 2:
                     print("end reqired id paramter!")
                 else:
                     self.end_connection(input_args[1])
+            elif command == "shutdown":
+                self.stop()
             else:
                 print(f"command \"{command}\" not found")
+
+    def print_comand_input(self):
+        if self.running:
+            print("\nCommand: ", end="")
 
     def print_connections(self):
         print()
         print("Connections:")
         print("---------------------")
-        if len(self.connectionHandler.connections) > 0:
-            for connection in self.connectionHandler.connections:
-                print(f"Connection: {connection.client_id}")
+        if len(self.connection_handler.connections) > 0:
+            for connection in self.connection_handler.connections:
+                print(f"Connection: id:{connection.client_id} address: {connection.addr}")
         else:
             print("No active connection")
         print("---------------------")
 
     def end_connection(self, id):
-        id = int(id)
-        if id not in [c.client_id for c in self.connectionHandler.connections]:
-            print(f"Connection with {id} id not found.")
-            print(f"Use ls command to check existing connections")
+        if id not in [str(c.client_id) for c in self.connection_handler.connections]:
+            print(f"Connection with \"{id}\" id not found.\nUse ls command to check existing connections")
             return
-        self.connectionHandler.close_connection(id)
+        self.connection_handler.close_connection(int(id))
         print(f"Connection {id} closed")
 
 

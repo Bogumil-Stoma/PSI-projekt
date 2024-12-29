@@ -2,6 +2,8 @@ import random
 from hashlib import sha256
 import struct
 import argparse
+import threading
+import time
 
 DEFAULT_PORT = 12345
 
@@ -79,3 +81,36 @@ def process_args(connection_type: str):
     args = parser.parse_args()
 
     return args.port, args.host
+
+
+class ThreadPrinter(threading.Thread):
+    def __init__(self, print_callback):
+        super().__init__(daemon=True)
+        self.print_callback = print_callback
+        self.mes_que = []
+        self.lock = threading.Lock()
+        self.stop_event = threading.Event()
+
+    def print(self, message):
+        with self.lock:
+            self.mes_que.append(message)
+
+    def run(self):
+        while not self.stop_event.is_set():
+            if len(self.mes_que) > 0:
+                time.sleep(0.1)
+                self.print_all()
+            time.sleep(0.1)
+
+    def stop(self):
+        self.stop_event.set()
+        self.stop_event.wait()
+        self.print_all()
+
+    def print_all(self):
+        print("\n")
+        for mes in self.mes_que:
+            print(mes)
+        self.mes_que.clear()
+        self.print_callback()
+

@@ -58,13 +58,9 @@ class DiffieHellmanClient:
 
     def send_message(self, message):
         try:
-            print("Connected to the server.")
-
             print(f"Sending: {message}")
 
             send_string(self.client_socket, message)
-            #response = read_string(self.client_socket)
-            #print(f"Received: {response}")
 
         except ConnectionError:
             print("Lost connection to the server.")
@@ -77,6 +73,7 @@ class DiffieHellmanClient:
         print()
         print("Commands:")
         print("---------------------")
+        print("help")
         print("connect")
         print("send <message content>")
         print("end")
@@ -87,7 +84,9 @@ class DiffieHellmanClient:
         while True:
             input_args = input("\nCommand: ").split(" ", 1)
             command = input_args[0]
-            if command == "connect":
+            if command == "help":
+                self.print_commands()
+            elif command == "connect":
                 if (self.connected):
                     print("Already connected!")
                 else:
