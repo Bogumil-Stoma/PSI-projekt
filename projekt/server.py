@@ -20,7 +20,7 @@ class Connection(threading.Thread):
         """Handle the client logic."""
         try:
             symmetric_key = self.perform_key_exchange(self.client_socket)
-            self.communicate_with_client(self.client_socket, symmetric_key)
+            self.handle_client_message(self.client_socket, symmetric_key)
         except Exception as e:
             self.print(f"Error with client {self.client_id}: {e}")
         finally:
@@ -57,7 +57,7 @@ class Connection(threading.Thread):
         self.print(f"Shared key K computed: {shared_key}, Symmetric key derived.")
         return symmetric_key
 
-    def communicate_with_client(self, client_socket, symmetric_key):
+    def handle_client_message(self, client_socket, symmetric_key):
         self.print("Waiting for messages from the client.")
         while self.running:
             message = read_string(client_socket)
@@ -193,6 +193,7 @@ class DiffieHellmanServer:
         print("---------------------")
 
     def end_connection(self, id):
+        id = int(id)
         if id not in [c.client_id for c in self.connectionHandler.connections]:
             print(f"Connection with {id} id not found.")
             print(f"Use ls command to check existing connections")
