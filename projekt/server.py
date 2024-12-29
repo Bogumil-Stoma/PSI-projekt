@@ -26,11 +26,12 @@ class Connection(threading.Thread):
         finally:
             self.stop()
 
-    def stop(self):
+    def stop(self, removed=True):
         """Close the connection and clean up."""
         self.client_socket.close()
         self.print(f"Connection with {self.addr} closed.")
-        self.remove_callback(self)
+        if removed:
+            self.remove_callback(self)
         self.stop_event.set()
 
     def print(self, mess):
@@ -140,7 +141,7 @@ class ConnectionsHandler(threading.Thread):
         self.print("Closing all connections")
         with self.lock:
             for connection in self.connections:
-                connection.stop()
+                connection.stop(False)
                 connection.join()
                 connection.stop_event.wait()
             self.connections = []
@@ -150,7 +151,8 @@ class ConnectionsHandler(threading.Thread):
         with self.lock:
             for connection in self.connections:
                 if connection.client_id == id:
-                    connection.stop()
+                    connection.stop(False)
+                    self.connections.remove(connection)
                     break
 
 
