@@ -64,6 +64,10 @@ class Connection(threading.Thread):
             message = read_string(client_socket)
             self.print(f"Received: {message}")
 
+            # todo: replace it by ennd connection message
+            response = "Hello from server!"
+            send_string(client_socket, response)
+
 
 class ConnectionsHandler(threading.Thread):
     def __init__(self, server_socket, printer, timeout=1.0):
