@@ -8,35 +8,34 @@ from Crypto.Util.Padding import pad, unpad
 from Crypto.Hash import HMAC, SHA256
 import hashlib
 
-DEFAULT_PORT = 12345
+DEFAULT_SERVER_PORT = 12345
+AES_BLOCK_SIZE = 16
+DEFAULT_HOST_SERVER = "0.0.0.0"
+DEFAULT_HOST_CLIENT = "127.0.0.1"
 
 
 def generate_private_key(bits=16):
-    """Generate a private key."""
+    """Calculate a private key a or b."""
     return random.randint(2, 2**bits)
-
 
 def calculate_public_key(g, private_key, p):
     """Calculate the public key A or B."""
     return pow(g, private_key, p)
 
 
-def calculate_shared_key(public_key, private_key, p):
-    """Calculate the shared secret key K."""
+def calculate_shared_secret(public_key, private_key, p):
+    """Calculate the shared secret K."""
     return pow(public_key, private_key, p)
 
 
-def derive_symmetric_key(shared_key):
-    """Derive a symmetric key from the shared secret key"""
-    return hashlib.sha256(str(shared_key).encode()).digest()[:16]
-
-
-BLOCK_SIZE = 16
+def derive_symmetric_key(shared_secret):
+    """Derive a symmetric key from the shared secret K."""
+    return hashlib.sha256(str(shared_secret).encode()).digest()[:16]
 
 
 def aes_cbc_encrypt(iv, plaintext, key):
     """Encrypt plaintext using AES in CBC mode."""
-    padded_data = pad(plaintext.encode(), BLOCK_SIZE)
+    padded_data = pad(plaintext.encode(), AES_BLOCK_SIZE)
     cipher = AES.new(key, AES.MODE_CBC, iv)
     ciphertext = cipher.encrypt(padded_data)
     return ciphertext
@@ -45,7 +44,7 @@ def aes_cbc_encrypt(iv, plaintext, key):
 def aes_cbc_decrypt(iv, ciphertext, key):
     """Decrypt ciphertext using AES in CBC mode."""
     cipher = AES.new(key, AES.MODE_CBC, iv)
-    decrypted_data = unpad(cipher.decrypt(ciphertext), BLOCK_SIZE)
+    decrypted_data = unpad(cipher.decrypt(ciphertext), AES_BLOCK_SIZE)
     return decrypted_data.decode()
 
 
@@ -80,34 +79,25 @@ def send_hello_message(sock, message_type, public_key, p, g):
     sock.sendall(hello_message)
 
 
-def read_string(sock):
-    size_data = sock.recv(4)
-    if not size_data:
-        return None
-    text_size = struct.unpack("!I", size_data)[0]
-    text_data = sock.recv(text_size)
-    return text_data.decode()
-
-
 def process_args(connection_type: str):
-    if connection_type == "server":
-        DEFAULT_HOST = "0.0.0.0"
-        description = "Start server"
-    elif connection_type == "client":
-        DEFAULT_HOST = "127.0.0.1"
-        description = "Start client"
-    else:
-        raise ValueError("Invalid connection type")
+    if connection_type not in ("server", "client"):
+        raise ValueError("Invalid connection type: must be 'server' or 'client'")
+
+    default_host = DEFAULT_HOST_SERVER if connection_type == "server" else DEFAULT_HOST_CLIENT
+    description = "Start server" if connection_type == "server" else "Start client"
+
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("--port", type=int, nargs="?",
-                        help="Port to listen on (default: %(default)s)",
-                        default=DEFAULT_PORT)
+    parser.add_argument("--port", type=int,
+                        help="Port on which server will be listening  (default: %(default)s)",
+                        default=DEFAULT_SERVER_PORT)
     parser.add_argument("--host", type=str,
-                        help="Host to listen on (default: %(default)s)",
-                        default=DEFAULT_HOST)
+                        help="For server: address to listen on. For client: address to connect to. (default: %(default)s)",
+                        default=default_host)
+    parser.add_argument("--verbose", action="store_true",
+                        help="Enable verbose mode. Default is False.")
     args = parser.parse_args()
 
-    return args.port, args.host
+    return args.port, args.host, args.verbose
 
 
 class ThreadPrinter(threading.Thread):
@@ -139,5 +129,5 @@ class ThreadPrinter(threading.Thread):
         for mes in self.mes_que:
             print(mes)
         self.mes_que.clear()
-        self.print_callback()
 
+        self.print_callback()
