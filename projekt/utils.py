@@ -101,16 +101,16 @@ def process_args(connection_type: str):
 
 
 class ThreadPrinter(threading.Thread):
-    def __init__(self, print_callback):
+    def __init__(self, print_callback=lambda: print("\nCommand: ", flush=True, end="")):
         super().__init__(daemon=True)
-        self.print_callback = print_callback
         self.mes_que = []
         self.lock = threading.Lock()
         self.stop_event = threading.Event()
+        self.print_callback = print_callback
 
-    def print(self, message):
+    def print(self, *args, **kwargs):
         with self.lock:
-            self.mes_que.append(message)
+            self.mes_que.append([args, kwargs])
 
     def run(self):
         while not self.stop_event.is_set():
@@ -126,8 +126,8 @@ class ThreadPrinter(threading.Thread):
 
     def print_all(self):
         print("\n")
-        for mes in self.mes_que:
-            print(mes)
+        for args, kwargs in self.mes_que:
+            print(*args, **kwargs)
         self.mes_que.clear()
 
         self.print_callback()
