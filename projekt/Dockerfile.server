@@ -1,0 +1,9 @@
+FROM python:3.12
+
+WORKDIR /app
+COPY ./utils.py ./
+COPY ./server.py ./
+
+RUN pip install pycryptodome
+
+CMD ["python", "./server.py"]

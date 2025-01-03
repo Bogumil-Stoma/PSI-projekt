@@ -1,0 +1,36 @@
+services:
+  server:
+    container_name: z35_server_projekt
+    build:
+      context: ./
+      dockerfile: Dockerfile.server
+    # networks:
+    #   z35_network:
+    #     ipv4_address: 172.21.35.2
+    networks:
+      - my-network
+    tty: true
+    stdin_open: true
+
+  client:
+    container_name: z35_client_projekt
+    build:
+      context: ./
+      dockerfile: Dockerfile.client
+    # networks:
+    #   - z35_network
+    networks:
+      - my-network
+    tty: true
+    stdin_open: true
+    depends_on:
+      - server
+    command: ["--host", "server"]
+# networks:
+#   z35_network:
+#     name: z35_network
+#     external: true
+
+networks:
+  my-network:
+    driver: bridge
