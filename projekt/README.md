@@ -47,7 +47,7 @@ Na serwerze używając polecenia ls wyświetlamy listę aktualnie aktywnych poł
 
 #### Zakończenie sesji przez klienta
 
-Klient wysyła wiadomość EndSession, poleceniem end.
+Klient wysyła wiadomość EndSession, poleceniem end_connection.
 Po odebraniu Serwer zakańcza połączenie.
 Po wysłaniu wiadomości EndSession klient musi ponownie zainicjować sesję, wysyłając nieszyfrowane ClientHello, aby wznowić komunikację.
 
@@ -75,8 +75,8 @@ Po odebraniu wiadomości EndSession klient musi ponownie zainicjować sesję, wy
 - Klient wysyła swój klucz publiczny A (A = g^a mod p) za pomocą wiadomości ClientHello.
 - Serwer odpowiada swoim kluczem publicznym B (B = g^b mod p) za pomocą wiadomości ServerHello.
 - Obie strony obliczają wspólny klucz K:
-    - Klient: K = B^a mod p.
-    - Serwer: K = A^b mod p.
+  - Klient: K = B^a mod p.
+  - Serwer: K = A^b mod p.
 - Klucz K będzie używany do symetrycznego szyfrowania komunikacji.
 
 ### Szyfrowanie wiadomości:
@@ -101,16 +101,16 @@ Struktury wiadomości:
 
 - ClientHello: Klient wysyła nieszyfrowaną wiadomość inicjującą połączenie, która zawiera:
   - 11B - "ClientHello"
-  - 16B - Liczba A
-  -  8B - liczba p
-  -  8B - liczba g
+  - 4B - Liczba A
+  - 4B - liczba p
+  - 4B - liczba g
 - ServerHello: Serwer odpowiada nieszyfrowaną wiadomością, która zawiera:
   - 11B - "ServerHello"
-  - 16B - Liczba B
+  - 4B - Liczba B
 - Message: szyfrowana Komunikacja
-  -  4B - Długość treści wiadomosci
+  - 4B - Długość treści wiadomosci
   - 16B - Initialization Vector (IV)
-  -  XB - Zaszyfrowana treść (Ciphertext)
+  - XB - Zaszyfrowana treść (Ciphertext)
   - 32B - Tag uwierzytelniający (MAC)
 - EndSession: Wariant zaszyfrowanej wiadmości Message której tekst pod odszfrowaniu jest równy "EndSession",
   służąca do zakończenia połączenia.
@@ -126,4 +126,5 @@ Struktury wiadomości:
 05.01.24 - 12.01.24 - Opracowanie sprawozdania końcowego
 
 ## Links
+
 - https://cryptii.com/pipes/aes-encryption
