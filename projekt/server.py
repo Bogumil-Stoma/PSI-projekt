@@ -1,13 +1,16 @@
+from typing import Callable, Self
 import socket
 import threading
 import struct
 import utils
 import sys
 import os
-
+import time
 
 class Connection(threading.Thread):
-    def __init__(self, client_id, client_socket: socket.socket, addr, remove_callback, printer: utils.ThreadPrinter, verbose):
+    def __init__(self, client_id, client_socket: socket.socket, addr,
+                 remove_callback: Callable[[Self], None],
+                 printer: utils.ThreadPrinter, verbose):
         super().__init__()
         self.client_id = client_id
         self.client_socket = client_socket
@@ -37,9 +40,7 @@ class Connection(threading.Thread):
             self.symmetric_key = self.perform_key_exchange(self.client_socket)
             self.handle_client_message(self.client_socket)
         except Exception as e:
-            self.print(f"Error with client {self.client_id}: {e}")
-        finally:
-            self.stop()
+            self.print(f"Caught error with client {self.client_id}: {e}")
 
     def stop(self, if_remove_from_connections=True):
         """Close the connection and clean up."""
@@ -55,7 +56,8 @@ class Connection(threading.Thread):
         client_hello_msg, client_public_key, self.p, self.g = struct.unpack("!11sIII", client_hello)
 
         self.print_if_verbose(f"[V] Received ClientHello with msg={client_hello_msg.decode()}")
-        self.print_if_verbose(f"[V] Received ClientHello with A={client_public_key} p={self.p} g={self.g}")
+        self.print_if_verbose(f"[V] Received ClientHello with A={client_public_key} "
+                              f"p={self.p} g={self.g}")
 
         server_private_key = utils.generate_private_key()
         server_public_key = utils.calculate_public_key(self.g, server_private_key, self.p)
@@ -86,25 +88,24 @@ class Connection(threading.Thread):
                 self.print("Authentication failed")
                 self.print("MAC received: ", mac, "\nMAC calculated: ", calculated_mac)
 
-                self.send_message("FAIL")
+                self.send_message(utils.ServerMessages.FAIL)
                 self.stop()
 
                 return
 
             decrypted_message = utils.aes_cbc_decrypt(iv, ciphertext, self.symmetric_key)
-            self.print(f"Received text: {decrypted_message}")
 
+            self.print(f"Received text: {decrypted_message}")
             self.print_if_verbose(f"[V] Received message size: {message_size}")
             self.print_if_verbose(f"[V] Received IV: {iv.hex()}")
             self.print_if_verbose(f"[V] Received ciphertext: {ciphertext.hex()}")
             self.print_if_verbose(f"[V] Received MAC: {mac.hex()}")
 
-            if decrypted_message.lower() == "endsession":
-                self.print("Received 'EndSession' message from the client")
+            if decrypted_message == utils.ServerMessages.END_SESSION:
                 self.stop()
                 return
 
-            self.send_message("OK")
+            self.send_message(utils.ServerMessages.OK)
 
     def send_message(self, message):
         try:
@@ -118,7 +119,9 @@ class Connection(threading.Thread):
             mac = utils.calculate_hmac(ciphertext, self.symmetric_key) # 32B
             final_message = message_size + iv + ciphertext + mac
 
-            self.print_if_verbose(f"[V] Sent text (length: {len(ciphertext)}): {ciphertext.hex()}")
+            self.print_if_verbose(f"[V] Sent text (length: {len(message)}): {message.value}")
+            self.print_if_verbose(f"[V] Sent ciphertext (length: {len(ciphertext)}): "
+                                  f"{ciphertext.hex()}")
             self.print_if_verbose(f"[V] Sent IV: {iv.hex()}")
             self.print_if_verbose(f"[V] Sent MAC: {mac.hex()}")
 
@@ -127,12 +130,13 @@ class Connection(threading.Thread):
             print("Lost connection to the client.")
             self.stop()
         except Exception as e:
-            print(f"Error while sending the message to client: {e}")
+            print(f"Caught Error while sending the message to client: {e}")
             self.stop()
             raise e
 
 class ConnectionsHandler(threading.Thread):
-    def __init__(self, server_socket: socket.socket, printer: utils.ThreadPrinter, verbose, timeout=1.0):
+    def __init__(self, server_socket: socket.socket, printer: utils.ThreadPrinter,
+                 verbose, timeout=1.0):
         super().__init__()
         self.server_socket = server_socket
         self.printer = printer
@@ -154,7 +158,7 @@ class ConnectionsHandler(threading.Thread):
             while not self.stop_event.is_set():
                 try:
                     client_socket, addr = self.server_socket.accept()
-                    self.print(f"Connection {self.next_client_id} established with {addr}")
+                    self.print(f"Connection {self.next_client_id} will be established with {addr}")
                     connection = Connection(self.next_client_id,
                                             client_socket,
                                             addr,
@@ -167,7 +171,7 @@ class ConnectionsHandler(threading.Thread):
                 except socket.timeout:
                     continue
         except Exception as e:
-            self.print(f"Error: {e}")
+            self.print(f"Caught Error: {e}")
         finally:
             self.print("Stopped")
 
@@ -189,7 +193,8 @@ class ConnectionsHandler(threading.Thread):
         self.print("Closing all connections")
         with self.lock:
             for connection in self.connections:
-                connection.send_message("EndSession")
+                connection.send_message(utils.ServerMessages.END_SESSION)
+                time.sleep(0.1) # give client time to read the message
                 connection.stop(False)
                 connection.join()
             self.connections = []
@@ -199,7 +204,8 @@ class ConnectionsHandler(threading.Thread):
         with self.lock:
             for connection in self.connections:
                 if connection.client_id == id:
-                    connection.send_message("EndSession")
+                    connection.send_message(utils.ServerMessages.END_SESSION)
+                    time.sleep(0.1) # give client time to read the message
                     connection.stop(False)
                     connection.join()
                     self.connections.remove(connection)
@@ -226,14 +232,15 @@ class DiffieHellmanServer:
 
         self.print(f"Server listening on {self.host}:{self.port}...")
         self.connection_handler = ConnectionsHandler(self.server_socket, self.printer,
-                                                     self.verbose)
+                                                     self.verbose, timeout=10.0)
         self.connection_handler.start()
 
         try:
             self.handle_input()
         except KeyboardInterrupt:
-            self.print("Shutdown")
+            self.connection_handler.close_all_connections()
             self.stop()
+            self.print("Shutting down server...")
             sys.exit(0)
         finally:
             self.print("Server shut down\n")
@@ -250,7 +257,6 @@ class DiffieHellmanServer:
             self.server_socket.close()
 
     def print_commands(self):
-        self.print()
         self.print("Commands:")
         self.print("---------------------")
         self.print("help")
@@ -274,10 +280,10 @@ class DiffieHellmanServer:
                 else:
                     self.end_connection(input_args[1])
             elif command == "shutdown":
+                self.print("Shutting down server. It will take a moment...")
                 self.connection_handler.close_all_connections()
 
                 self.stop()
-                self.print("Shutting down server...")
                 sys.exit(0)
             else:
                 self.print(f"Command '{command}' not found")
@@ -295,7 +301,8 @@ class DiffieHellmanServer:
 
     def end_connection(self, id):
         if id not in [str(c.client_id) for c in self.connection_handler.connections]:
-            self.print(f"Connection with \"{id}\" id not found.\nUse 'ls' command to check existing connections")
+            self.print(f"Connection with \"{id}\" id not found.\n"
+                       "Use 'ls' command to check existing connections")
             return
 
         self.connection_handler.close_connection(int(id))
