@@ -37,8 +37,8 @@ class Connection(threading.Thread):
     def run(self):
         """Handle the client logic."""
         try:
-            self.symmetric_key = self.perform_key_exchange(self.client_socket)
-            self.handle_client_message(self.client_socket)
+            self.symmetric_key = self.perform_key_exchange()
+            self.handle_client_message()
         except Exception as e:
             self.print(f"Caught error with client {self.client_id}: {e}")
 
@@ -50,9 +50,9 @@ class Connection(threading.Thread):
             self.remove_callback(self)
         self.stop_event.set()
 
-    def perform_key_exchange(self, client_socket: socket.socket):
+    def perform_key_exchange(self):
         self.print("Waiting for ClientHello")
-        client_hello = utils.receive_data(client_socket, 23)
+        client_hello = utils.receive_data(self.client_socket, 23)
         client_hello_msg, client_public_key, self.p, self.g = struct.unpack("!11sIII", client_hello)
 
         self.print_if_verbose(f"[V] Received ClientHello with msg={client_hello_msg.decode()}")
@@ -63,8 +63,8 @@ class Connection(threading.Thread):
         server_public_key = utils.calculate_public_key(self.g, server_private_key, self.p)
 
         self.print_if_verbose(f"[V] Sending ServerHello with B={server_public_key}")
-        hello_message = struct.pack("!11sI", b"serverHello", server_public_key)
-        client_socket.sendall(hello_message)
+        hello_message = struct.pack("!11sI", b"ServerHello", server_public_key)
+        self.client_socket.sendall(hello_message)
 
         shared_key = utils.calculate_shared_secret(client_public_key, server_private_key, self.p)
         symmetric_key = utils.derive_symmetric_key(shared_key)
@@ -74,7 +74,7 @@ class Connection(threading.Thread):
 
         return symmetric_key
 
-    def handle_client_message(self, client_socket: socket.socket):
+    def handle_client_message(self):
         self.print("Connection was established - waiting for messages from the client.")
         while not self.stop_event.is_set():
             message_size_data = utils.receive_data(self.client_socket, 4)
@@ -109,7 +109,7 @@ class Connection(threading.Thread):
 
     def send_message(self, message):
         try:
-            print(f"Sending: {message}")
+            self.print(f"Sending: {message}")
 
             iv = os.urandom(utils.AES_BLOCK_SIZE) # random 16B
 
@@ -127,10 +127,10 @@ class Connection(threading.Thread):
 
             self.client_socket.sendall(final_message)
         except ConnectionError:
-            print("Lost connection to the client.")
+            self.print("Lost connection to the client.")
             self.stop()
         except Exception as e:
-            print(f"Caught Error while sending the message to client: {e}")
+            self.print(f"Caught Error while sending the message to client: {e}")
             self.stop()
             raise e
 

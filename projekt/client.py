@@ -145,17 +145,20 @@ class DiffieHellmanClient:
             self.print(f"Caught Connection Error: {e}")
 
     def close_connection(self):
-        if self.connected:
-            self.client_socket.close()
-            self.connected = False
+        self.client_socket.close()
+        self.connected = False
 
     def notify_and_dissconnect(self):
         if self.connected:
             self.send_message(utils.ServerMessages.END_SESSION) # notify server
             time.sleep(0.1) # give server time to read the message
+            self.close_connection()
+            self.print("Notififed server and disconnected")
+        else:
+            self.print("Client disconnected...")
 
-        self.close_connection()
-        self.print("Notififed server and disconnected")
+
+
 
     def send_message(self, message):
         try:
