@@ -19,3 +19,25 @@
 - wykonać git clone
 - wejść w folder z zadaniem (Zad2)
 - wykonać komendę `docker-compose up`
+
+## Jak uruchomić projekt
+
+- wykonac git clone
+- wejść w folder z zadaniem (projekt)
+
+### Odpalenie lokalne
+
+- uruchamiamy serwer (wersja python przynajmniej 3.11): `python ./server.py`
+- uruchamiamy klienta/klientów: `python ./client.py`
+
+### Odpalenie lokalne przez dockera
+
+- wykonujemy komende `docker-compose up -d`
+- aby połączyć się do termianal kontenera z serwerem: `docker attach z35_server_projekt`
+- aby połączyć się do termianla kontenera z klientem: `docker attach z35_client_projekt`
+
+### Odpalenie przez dockera na bigubu
+
+- wejść do pliku `docker-compose.yml`
+- edytować trzeba plik `docker-compose.yml`, zakomentować aktualnie odkomentowane ustawienia sieci i odkomentować te, które były zakomentowane
+- dalej tak jak w przypadku odpalenia lokalnego przez dockera (podpunkt wyżej)
